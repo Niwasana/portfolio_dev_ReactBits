@@ -1,34 +1,27 @@
-export const runtime = "nodejs";
-export const dynamic = "force-static";
-// export const revalidate = 60; // 更新頻度に応じて
+export const runtime = "nodejs";                // fs 使うので node
+export const dynamic = "force-static";          // ★ 動的扱いしない（Lambda作らない）
+export const dynamicParams = false;             // ★ SSG用に slug を固定列挙
 
-import Link from "next/link";
-import { getAllPosts } from "@/lib/mdx";
+import { getPostBySlug, getAllPosts } from "@/lib/mdx";
+import { notFound } from "next/navigation";
 
-export default async function BlogIndex() {
-  const posts = await getAllPosts();
+export async function generateStaticParams() {   // ★ ここで全slugを列挙
+  const posts = await getAllPosts();            // src/content/blog/*.mdx を読む
+  return posts.map((p) => ({ slug: p.slug }));
+}
 
-  if (posts.length === 0) {
+export default async function BlogPost({ params }: { params: { slug: string } }) {
+  try {
+    const { content: MDXContent, frontmatter } = await getPostBySlug(params.slug);
     return (
-      <section>
-        <h1 className="text-2xl font-semibold mb-4">Blog</h1>
-        <p className="text-neutral-600 text-sm">まだ投稿はありません。</p>
-      </section>
+      <article className="prose prose-neutral lg:prose-lg max-w-none leading-relaxed
+                          prose-p:my-4 prose-li:my-1 prose-h2:mt-10 prose-h3:mt-8 prose-img:rounded-xl">
+        <h1 className="!mb-1">{frontmatter.title}</h1>
+        <p className="text-sm text-neutral-500 !mt-0">{frontmatter.date}</p>
+        <div className="mt-6">{MDXContent}</div>
+      </article>
     );
+  } catch {
+    notFound();
   }
-
-  return (
-    <section>
-      <h1 className="text-2xl font-semibold mb-4">Blog</h1>
-      <ul className="space-y-3">
-        {posts.map((p) => (
-          <li key={p.slug}>
-            <Link className="underline" href={`/blog/${p.slug}`}>{p.title}</Link>
-            <div className="text-sm text-neutral-500">{p.date}</div>
-            {p.summary && <p className="text-sm">{p.summary}</p>}
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
 }
