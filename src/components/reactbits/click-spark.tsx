@@ -15,13 +15,13 @@ export interface ClickSparkProps {
   className?: string;
   children?: React.ReactNode;
 
-  // ★ 追加: 全ページに効かせる“オーバーレイ”運用
+  /** 画面全体オーバーレイとして動かす */
   global?: boolean;
-  // ★ 追加: 無効化したい領域（例：<div data-no-spark="true">）
+  /** エフェクトを無効化したい領域（例：div[data-no-spark="true"]） */
   ignoreSelector?: string;
-  // ★ 追加: モバイル取りこぼしを減らす
+  /** イベント種別（モバイル取りこぼし軽減なら pointerdown 推奨） */
   eventType?: "click" | "pointerdown";
-  // ★ 追加: 一時的に止めたい時
+  /** 一時的に停止 */
   disabled?: boolean;
 }
 
@@ -51,14 +51,16 @@ export default function ClickSpark({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const sparksRef = useRef<Spark[]>([]);
+
   const reducedMotion =
     typeof window !== "undefined" &&
-    window.matchMedia &&
+    typeof window.matchMedia === "function" &&
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   const resizeCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+
     const parent = global ? document.documentElement : canvas.parentElement;
     if (!parent) return;
 
@@ -69,13 +71,15 @@ export default function ClickSpark({
     const dpr = Math.max(1, Math.floor(window.devicePixelRatio || 1));
     const targetW = Math.floor(rect.width * dpr);
     const targetH = Math.floor(rect.height * dpr);
+
     if (canvas.width !== targetW || canvas.height !== targetH) {
       canvas.width = targetW;
       canvas.height = targetH;
       const ctx = canvas.getContext("2d");
       if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
-    // CSSピクセルの見た目サイズも合わせる
+
+    // 見た目サイズ（CSS px）も合わせる
     if (!global) {
       canvas.style.width = `${rect.width}px`;
       canvas.style.height = `${rect.height}px`;
@@ -92,7 +96,8 @@ export default function ClickSpark({
         case "ease-in-out":
           return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
         default:
-          return t * (2 - t); // ease-out
+          // ease-out
+          return t * (2 - t);
       }
     },
     [easing]
@@ -104,10 +109,10 @@ export default function ClickSpark({
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    let t: ReturnType<typeof setTimeout> | null = null;
+    let timer: ReturnType<typeof setTimeout> | null = null;
     const onResize = () => {
-      if (t) clearTimeout(t);
-      t = setTimeout(resizeCanvas, 80);
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(resizeCanvas, 80);
     };
 
     if (global) {
@@ -115,19 +120,20 @@ export default function ClickSpark({
       resizeCanvas();
       return () => {
         window.removeEventListener("resize", onResize);
-        if (t) clearTimeout(t);
-      };
-    } else {
-      const parent = canvas.parentElement;
-      if (!parent) return;
-      const ro = new ResizeObserver(onResize);
-      ro.observe(parent);
-      resizeCanvas();
-      return () => {
-        ro.disconnect();
-        if (t) clearTimeout(t);
+        if (timer) clearTimeout(timer);
       };
     }
+
+    const parent = canvas.parentElement;
+    if (!parent) return;
+
+    const ro = new ResizeObserver(onResize);
+    ro.observe(parent);
+    resizeCanvas();
+    return () => {
+      ro.disconnect();
+      if (timer) clearTimeout(timer);
+    };
   }, [resizeCanvas, global, disabled, reducedMotion]);
 
   // 描画ループ
@@ -135,12 +141,15 @@ export default function ClickSpark({
     if (disabled || reducedMotion) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
+
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
     let animationId = 0;
+
     const draw = (ts: number) => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+
       sparksRef.current = sparksRef.current.filter((spark) => {
         const elapsed = ts - spark.startTime;
         if (elapsed >= duration) return false;
@@ -161,33 +170,24 @@ export default function ClickSpark({
         ctx.moveTo(x1, y1);
         ctx.lineTo(x2, y2);
         ctx.stroke();
+
         return true;
       });
+
       animationId = requestAnimationFrame(draw);
     };
 
     animationId = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(animationId);
-  }, [
-    sparkColor,
-    sparkSize,
-    sparkRadius,
-    duration,
-    easeFunc,
-    extraScale,
-    lineWidth,
-    disabled,
-    reducedMotion,
-  ]);
+  }, [sparkColor, sparkSize, sparkRadius, duration, easeFunc, extraScale, lineWidth, disabled, reducedMotion]);
 
-  // クリック検知（グローバル or ラッパー）
-  // クリック検知（グローバル or ラッパー）
+  // クリック検知（global or wrapper）
   useEffect(() => {
     if (disabled || reducedMotion) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const handler = (clientX: number, clientY: number, target: EventTarget | null) => {
+    const handleSpark = (clientX: number, clientY: number, target: EventTarget | null) => {
       if (ignoreSelector && target instanceof Element && target.closest(ignoreSelector)) return;
 
       const rect = global ? { left: 0, top: 0 } : canvas.getBoundingClientRect();
@@ -207,28 +207,27 @@ export default function ClickSpark({
 
     if (global) {
       if (eventType === "click") {
-        const onClick = (e: MouseEvent) => handler(e.clientX, e.clientY, e.target);
+        const onClick = (e: MouseEvent) => handleSpark(e.clientX, e.clientY, e.target);
         document.addEventListener("click", onClick, { passive: true });
         return () => document.removeEventListener("click", onClick);
-      } else {
-        const onPointer = (e: PointerEvent) => handler(e.clientX, e.clientY, e.target);
-        document.addEventListener("pointerdown", onPointer, { passive: true });
-        return () => document.removeEventListener("pointerdown", onPointer);
       }
-    } else {
-      const div = wrapperRef.current;
-      if (!div) return;
-
-      if (eventType === "click") {
-        const onClick = (e: MouseEvent) => handler(e.clientX, e.clientY, e.target);
-        div.addEventListener("click", onClick, { passive: true });
-        return () => div.removeEventListener("click", onClick);
-      } else {
-        const onPointer = (e: PointerEvent) => handler(e.clientX, e.clientY, e.target);
-        div.addEventListener("pointerdown", onPointer, { passive: true });
-        return () => div.removeEventListener("pointerdown", onPointer);
-      }
+      const onPointer = (e: PointerEvent) => handleSpark(e.clientX, e.clientY, e.target);
+      document.addEventListener("pointerdown", onPointer, { passive: true });
+      return () => document.removeEventListener("pointerdown", onPointer);
     }
+
+    const div = wrapperRef.current;
+    if (!div) return;
+
+    if (eventType === "click") {
+      const onClick = (e: MouseEvent) => handleSpark(e.clientX, e.clientY, e.target);
+      div.addEventListener("click", onClick, { passive: true });
+      return () => div.removeEventListener("click", onClick);
+    }
+
+    const onPointer = (e: PointerEvent) => handleSpark(e.clientX, e.clientY, e.target);
+    div.addEventListener("pointerdown", onPointer, { passive: true });
+    return () => div.removeEventListener("pointerdown", onPointer);
   }, [global, eventType, ignoreSelector, sparkCount, disabled, reducedMotion]);
 
   if (disabled || reducedMotion) return <>{children}</>;
