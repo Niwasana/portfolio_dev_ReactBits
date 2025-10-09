@@ -1,31 +1,26 @@
-// src/app/layout.tsx
 import type { Metadata } from "next";
-import Link from "next/link"; 
 import "./globals.css";
+import { SiteHeader } from "../components/layout/site-header";
+import { SiteFooter } from "../components/layout/site-footer";
+import ClickSpark from "../components/reactbits/click-spark";
 
 export const metadata: Metadata = {
-  title: "Sana | Portfolio",
-  description: "C言語を核に“安定×堅実”で積み上げるエンジニアのポートフォリオ",
+  title: {
+    default: "Sana | Portfolio",
+    template: "%s | Sana",
+  },
+  description: "Cを核に“安定×堅実”。自動運転×聴覚/認知、AtCoder緑、ハッカソン2位＋観客賞。",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ja">
       <body className="min-h-dvh bg-white text-neutral-900 antialiased">
-        <header className="sticky top-0 z-50 border-b bg-white/80 backdrop-blur">
-          <nav className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-            <Link href="/" className="font-bold">Sana</Link>
-            <div className="flex gap-4 text-sm">
-              <Link href="/works">Works</Link>
-              <Link href="/skills">Skills</Link>
-              <Link href="/research">Research</Link>
-              <Link href="/resume">Resume</Link>
-            </div>
-          </nav>
-        </header>
-        <main className="mx-auto max-w-5xl px-4 py-8">{children}</main>
+        <SiteHeader />
+        <main className="mx-auto max-w-5xl px-4 py-10">{children}</main>
+        <SiteFooter />
+        <ClickSpark global eventType="pointerdown" className="z-50" />
       </body>
     </html>
   );
 }
-
