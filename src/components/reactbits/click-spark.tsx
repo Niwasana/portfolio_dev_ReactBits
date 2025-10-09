@@ -77,7 +77,8 @@ export default function ClickSpark({
     }
     // CSSピクセルの見た目サイズも合わせる
     if (!global) {
-      (canvas.style.width = `${rect.width}px`), (canvas.style.height = `${rect.height}px`);
+      canvas.style.width = `${rect.width}px`;
+      canvas.style.height = `${rect.height}px`;
     }
   }, [global]);
 
@@ -167,15 +168,26 @@ export default function ClickSpark({
 
     animationId = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(animationId);
-  }, [sparkColor, sparkSize, sparkRadius, duration, easeFunc, extraScale, lineWidth, disabled, reducedMotion]);
+  }, [
+    sparkColor,
+    sparkSize,
+    sparkRadius,
+    duration,
+    easeFunc,
+    extraScale,
+    lineWidth,
+    disabled,
+    reducedMotion,
+  ]);
 
+  // クリック検知（グローバル or ラッパー）
   // クリック検知（グローバル or ラッパー）
   useEffect(() => {
     if (disabled || reducedMotion) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const handler = (clientX: number, clientY: number, target?: EventTarget | null) => {
+    const handler = (clientX: number, clientY: number, target: EventTarget | null) => {
       if (ignoreSelector && target instanceof Element && target.closest(ignoreSelector)) return;
 
       const rect = global ? { left: 0, top: 0 } : canvas.getBoundingClientRect();
@@ -194,16 +206,28 @@ export default function ClickSpark({
     };
 
     if (global) {
-      const onEvt = (e: MouseEvent | PointerEvent) => handler(e.clientX, e.clientY, e.target);
-      document.addEventListener(eventType, onEvt as any, { passive: true });
-      return () => document.removeEventListener(eventType, onEvt as any);
+      if (eventType === "click") {
+        const onClick = (e: MouseEvent) => handler(e.clientX, e.clientY, e.target);
+        document.addEventListener("click", onClick, { passive: true });
+        return () => document.removeEventListener("click", onClick);
+      } else {
+        const onPointer = (e: PointerEvent) => handler(e.clientX, e.clientY, e.target);
+        document.addEventListener("pointerdown", onPointer, { passive: true });
+        return () => document.removeEventListener("pointerdown", onPointer);
+      }
     } else {
       const div = wrapperRef.current;
       if (!div) return;
-      const onEvt = (e: MouseEvent | PointerEvent) =>
-        handler((e as any).clientX, (e as any).clientY, e.target as any);
-      div.addEventListener(eventType, onEvt as any, { passive: true });
-      return () => div.removeEventListener(eventType, onEvt as any);
+
+      if (eventType === "click") {
+        const onClick = (e: MouseEvent) => handler(e.clientX, e.clientY, e.target);
+        div.addEventListener("click", onClick, { passive: true });
+        return () => div.removeEventListener("click", onClick);
+      } else {
+        const onPointer = (e: PointerEvent) => handler(e.clientX, e.clientY, e.target);
+        div.addEventListener("pointerdown", onPointer, { passive: true });
+        return () => div.removeEventListener("pointerdown", onPointer);
+      }
     }
   }, [global, eventType, ignoreSelector, sparkCount, disabled, reducedMotion]);
 
