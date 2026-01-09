@@ -9,7 +9,7 @@ export default function About() {
       {/* 基本情報 */}
       <h2 className="text-2xl font-semibold mb-2">基本情報</h2>
       <ul className="list-disc ml-6">
-        <li>名前：Amamiya_Ain</li>
+        <li>名前：Niwasana</li>
         <li>所属：九州大学大学院 システム情報科学府 情報理工学専攻 M1</li>
         <li>
           研究分野：
