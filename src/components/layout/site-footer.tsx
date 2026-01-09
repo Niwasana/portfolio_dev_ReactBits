@@ -2,7 +2,7 @@ export function SiteFooter() {
   return (
     <footer className="border-t">
       <div className="mx-auto max-w-5xl px-4 py-8 text-sm text-neutral-500">
-        © {new Date().getFullYear()} Amamiya_Ain. Built with Next.js & Tailwind.
+        © {new Date().getFullYear()} Niwasana. Built with Next.js & Tailwind.
       </div>
     </footer>
   );
